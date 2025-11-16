@@ -88,7 +88,7 @@ export default function LoginPage() {
               {loading ? "Logging in..." : "Login"}
             </Button>
           </form>
-          <div className="relative">
+          {/* <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -100,13 +100,13 @@ export default function LoginPage() {
           </div>
           <Button
             type="button"
-            variant="outline"
+            variant="outline"`
             className="w-full"
             onClick={handleGoogleLogin}
             disabled={loading}
           >
             Google
-          </Button>
+          </Button> */}
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link href="/register" className="text-primary hover:underline">
