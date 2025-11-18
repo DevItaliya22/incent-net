@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 interface Post {
   id: string;
   content: string;
+  image: string | null;
   authorId: string;
   parentPostId: string | null;
   likesCount: number;
