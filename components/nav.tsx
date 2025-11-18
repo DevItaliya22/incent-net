@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Nav() {
   const { data: session } = useSession();
@@ -21,7 +22,8 @@ export function Nav() {
           <Link href="/" className="text-xl font-bold">
             Incent
           </Link>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Button variant="outline" asChild>
               <Link href="/login">Login</Link>
             </Button>
@@ -50,6 +52,7 @@ export function Nav() {
           <Button variant="ghost" asChild>
             <Link href="/admin/products">Admin</Link>
           </Button>
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
