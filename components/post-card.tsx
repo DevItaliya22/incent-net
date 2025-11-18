@@ -35,6 +35,7 @@ import Link from "next/link";
 interface Post {
   id: string;
   content: string;
+  image: string | null;
   authorId: string;
   parentPostId: string | null;
   likesCount: number;
@@ -313,7 +314,18 @@ export function PostCard({
               </DropdownMenu>
             )}
           </div>
-          <p className="mt-2 whitespace-pre-wrap">{post.content}</p>
+          {post.content && (
+            <p className="mt-2 whitespace-pre-wrap">{post.content}</p>
+          )}
+          {post.image && (
+            <div className="mt-2">
+              <img
+                src={post.image}
+                alt="Post image"
+                className="w-full rounded-lg object-cover max-h-96"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-4 mt-3">
             <Button
               variant="ghost"

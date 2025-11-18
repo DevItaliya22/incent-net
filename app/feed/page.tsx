@@ -8,11 +8,14 @@ import { PostCard } from "@/components/post-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 interface Post {
   id: string;
   content: string;
+  image: string | null;
   authorId: string;
   parentPostId: string | null;
   likesCount: number;
@@ -40,6 +43,9 @@ export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -69,21 +75,78 @@ export default function FeedPage() {
     }
   }, [status, router, loadPosts]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "post");
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to upload image");
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim() && !selectedFile) return;
 
     setSubmitting(true);
     try {
+      let imageUrl: string | null = null;
+
+      if (selectedFile) {
+        setUploading(true);
+        try {
+          imageUrl = await uploadImage(selectedFile);
+        } catch (error) {
+          toast.error("Failed to upload image");
+          setUploading(false);
+          setSubmitting(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, image: imageUrl }),
       });
 
       if (response.ok) {
         toast.success("Post created");
         setContent("");
+        setSelectedFile(null);
+        setImagePreview(null);
         loadPosts();
       } else {
         toast.error("Failed to create post");
@@ -121,12 +184,52 @@ export default function FeedPage() {
                 rows={4}
                 maxLength={10000}
               />
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="cursor-pointer"
+                />
+                {imagePreview && (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setImagePreview(null);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">
                   {content.length}/10000
                 </span>
-                <Button type="submit" disabled={submitting || !content.trim()}>
-                  {submitting ? "Posting..." : "Post"}
+                <Button
+                  type="submit"
+                  disabled={
+                    submitting ||
+                    uploading ||
+                    (!content.trim() && !selectedFile)
+                  }
+                >
+                  {uploading
+                    ? "Uploading..."
+                    : submitting
+                    ? "Posting..."
+                    : "Post"}
                 </Button>
               </div>
             </form>

@@ -5,7 +5,8 @@ import { POINTS } from "@/lib/constants";
 import { z } from "zod";
 
 const createPostSchema = z.object({
-  content: z.string().min(1).max(10000),
+  content: z.string().max(10000).optional(),
+  image: z.string().url().optional(),
   parentPostId: z.string().optional(),
 });
 
@@ -17,11 +18,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { content, parentPostId } = createPostSchema.parse(body);
+    const { content, image, parentPostId } = createPostSchema.parse(body);
+
+    if (!content && !image) {
+      return NextResponse.json(
+        { error: "Post must have content or image" },
+        { status: 400 }
+      );
+    }
 
     const post = await prisma.post.create({
       data: {
-        content,
+        content: content || "",
+        image: image || null,
         authorId: session.user.id,
         parentPostId: parentPostId || null,
       },

@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from "uuid";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (for products)
+const MAX_POST_FILE_SIZE = 5 * 1024 * 1024; // 5MB (for posts)
 
 function getS3Client() {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -40,10 +41,13 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const uploadType = formData.get("type") as string | null; // "post" or "product"
 
     console.log(
       "File received:",
-      file ? { name: file.name, size: file.size, type: file.type } : "null"
+      file ? { name: file.name, size: file.size, type: file.type } : "null",
+      "Upload type:",
+      uploadType
     );
 
     if (!file) {
@@ -57,15 +61,17 @@ export async function POST(request: Request) {
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    const maxSize = uploadType === "post" ? MAX_POST_FILE_SIZE : MAX_FILE_SIZE;
+    if (file.size > maxSize) {
       return NextResponse.json(
-        { error: `File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
+        { error: `File size exceeds ${maxSize / 1024 / 1024}MB limit` },
         { status: 400 }
       );
     }
 
     const fileExtension = file.name.split(".").pop() || "jpg";
-    const fileName = `products/${uuidv4()}.${fileExtension}`;
+    const folder = uploadType === "post" ? "posts" : "products";
+    const fileName = `${folder}/${uuidv4()}.${fileExtension}`;
 
     console.log("Processing file:", fileName, "Size:", file.size);
 
