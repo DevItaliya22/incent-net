@@ -38,6 +38,9 @@ export default function AdminProductsPage() {
     price: "",
     description: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -57,13 +60,68 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please select an image file");
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to upload image");
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      let imageUrl = formData.image;
+
+      if (selectedFile) {
+        setUploading(true);
+        try {
+          imageUrl = await uploadImage(selectedFile);
+          toast.success("Image uploaded successfully");
+        } catch (error) {
+          toast.error("Failed to upload image");
+          setUploading(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+
+      if (!imageUrl) {
+        toast.error("Please select an image");
+        return;
+      }
+
       const productData = {
         name: formData.name,
-        image: formData.image,
+        image: imageUrl,
         price: parseInt(formData.price),
         description: formData.description || null,
       };
@@ -112,6 +170,8 @@ export default function AdminProductsPage() {
       price: product.price.toString(),
       description: product.description || "",
     });
+    setImagePreview(product.image);
+    setSelectedFile(null);
     setIsDialogOpen(true);
   };
 
@@ -137,6 +197,8 @@ export default function AdminProductsPage() {
   const resetForm = () => {
     setFormData({ name: "", image: "", price: "", description: "" });
     setEditingProduct(null);
+    setSelectedFile(null);
+    setImagePreview(null);
   };
 
   return (
@@ -234,16 +296,31 @@ export default function AdminProductsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image">Image URL</Label>
-                <Input
-                  id="image"
-                  type="url"
-                  value={formData.image}
-                  onChange={(e) =>
-                    setFormData({ ...formData, image: e.target.value })
-                  }
-                  required
-                />
+                <Label htmlFor="image">Image</Label>
+                <div className="space-y-2">
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="cursor-pointer"
+                  />
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                    </div>
+                  )}
+                  {!selectedFile && editingProduct && (
+                    <p className="text-sm text-muted-foreground">
+                      Current image will be used. Select a new file to replace
+                      it.
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="price">Price (points)</Label>
@@ -280,8 +357,12 @@ export default function AdminProductsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingProduct ? "Update" : "Create"}
+                <Button type="submit" disabled={uploading}>
+                  {uploading
+                    ? "Uploading..."
+                    : editingProduct
+                    ? "Update"
+                    : "Create"}
                 </Button>
               </DialogFooter>
             </form>
